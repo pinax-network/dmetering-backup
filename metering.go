@@ -3,14 +3,14 @@ package dmetering
 import (
 	"context"
 	"fmt"
+	"github.com/pinax-network/dtypes/authentication"
+	"github.com/pinax-network/dtypes/metering"
 	"net/url"
-
-	"github.com/streamingfast/dauth/authenticator"
 )
 
 type Metering interface {
-	EmitWithContext(ev Event, ctx context.Context)
-	EmitWithCredentials(ev Event, creds authenticator.Credentials)
+	EmitWithContext(ev metering.Event, ctx context.Context)
+	EmitWithCredentials(ev metering.Event, creds authentication.Credentials)
 	GetStatusCounters() (total, errors uint64)
 	WaitToFlush()
 }

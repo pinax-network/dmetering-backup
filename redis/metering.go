@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/go-redis/redis/v8"
+	"github.com/pinax-network/dtypes/authentication"
+	"github.com/pinax-network/dtypes/metering"
 	"github.com/streamingfast/dauth/authenticator"
 	"net/url"
 	"strconv"
@@ -12,8 +14,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/streamingfast/dauth/authenticator/jwt"
 	"github.com/streamingfast/dmetering"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -83,7 +83,7 @@ type meteringPlugin struct {
 }
 
 // type topicProviderFunc func(pubsubProject string, topicName string) *pubsub.Topic
-type topicEmitterFunc func(e *dmetering.Event)
+type topicEmitterFunc func(e *metering.Event)
 
 func newMetering(network string, hosts []string, db int, pubSubTopic string, warnOnPubSubErrors bool, emitterDelay time.Duration /*topicProvider topicProviderFunc,*/, topicEmitter topicEmitterFunc) *meteringPlugin {
 	m := &meteringPlugin{
@@ -115,75 +115,34 @@ func newMetering(network string, hosts []string, db int, pubSubTopic string, war
 	return m
 }
 
-func (m *meteringPlugin) EmitWithContext(ev dmetering.Event, ctx context.Context) {
+func (m *meteringPlugin) EmitWithContext(ev metering.Event, ctx context.Context) {
 	credentials := authenticator.GetCredentials(ctx)
 	m.EmitWithCredentials(ev, credentials)
 }
 
-func (m *meteringPlugin) EmitWithCredentials(ev dmetering.Event, creds authenticator.Credentials) {
-
-	userEvent := &dmetering.Event{
-		Source:            ev.Source,
-		Kind:              ev.Kind,
-		Network:           m.network,
-		Method:            ev.Method,
-		RequestsCount:     ev.RequestsCount,
-		ResponsesCount:    ev.ResponsesCount,
-		RateLimitHitCount: ev.RateLimitHitCount,
-		IngressBytes:      ev.IngressBytes,
-		EgressBytes:       ev.EgressBytes,
-		IdleTime:          ev.IdleTime,
-	}
-
-	quota := 120
+func (m *meteringPlugin) EmitWithCredentials(ev metering.Event, creds authentication.Credentials) {
 
 	switch c := creds.(type) {
-	case *authenticator.AnonymousCredentials:
-		userEvent.UserId = "anonymous"
-		userEvent.ApiKeyId = "anonymous"
-		userEvent.Usage = "anonymous"
-		userEvent.IpAddress = "0.0.0.0"
-	case *jwt.Credentials:
-		userEvent.UserId = c.Subject
-		userEvent.ApiKeyId = c.ApiKeyId
+	case *authentication.JwtCredentials:
+		ev.UserId = c.Subject
+		ev.ApiKeyId = c.ApiKeyId
 		// userEvent.Usage = c.Usage
-		userEvent.IpAddress = c.IP
-
-		hasNetworkQuotaAssigned := false
-
-		for _, n := range c.Networks {
-			if n.Name == m.network {
-				zlog.Debug("found network in the token, applying network based rate limits", zap.Any("network", n))
-				hasNetworkQuotaAssigned = true
-				quota = n.Quota
-				break
-			}
-		}
-		if !hasNetworkQuotaAssigned {
-			zlog.Error("missing network quota in access token, assigning 120", zap.Any("credentials", c), zap.String("network", m.network))
-		}
-
+		ev.IpAddress = c.IP
 	default:
 		zlog.Warn("got invalid credentials type", zap.Any("c", c))
 	}
-
 	zlog.Debug("emit event", zap.Any("event", ev), zap.Any("credentials", creds))
 
-	_, err := m.luaHandler.HandleEvent(userEvent, quota)
-
-	if err != nil {
-		zlog.Warn("failed to execute lua script", zap.Error(err))
-	}
-
-	m.emit(userEvent)
+	m.emit(ev)
 }
 
-func (m *meteringPlugin) emit(e *dmetering.Event) {
+func (m *meteringPlugin) emit(e metering.Event) {
 	m.messagesCount.Inc()
-	if e.Timestamp == nil {
-		e.Timestamp = ptypes.TimestampNow()
+	if e.Time == nil {
+		curTime := time.Now()
+		e.Time = &curTime
 	}
-	m.accumulator.emit(e)
+	m.accumulator.emit(&e)
 }
 
 func (m *meteringPlugin) GetStatusCounters() (total, errors uint64) {
@@ -226,40 +185,20 @@ func (m *meteringPlugin) WaitToFlush() {
 	return topic
 }*/
 
-func (m *meteringPlugin) defaultTopicEmitter(e *dmetering.Event) {
+func (m *meteringPlugin) defaultTopicEmitter(e *metering.Event) {
 	if e.UserId == "" || e.Source == "" || e.Kind == "" {
 		zlog.Warn("events SHALL minimally contain UserID, Source and Kind, dropping billing event", zap.Any("event", e))
 		return
 	}
 
-	cmd := &dmetering.Command{
-		Action: &pbbilling.Command_EventAction{
-			EventAction: &pbbilling.EventAction{
-				Event: e,
-			},
-		},
-	}
-
-	data, err := proto.Marshal(cmd)
+	data, err := proto.Marshal(e.ToProtobuf())
 	if err != nil {
 		m.errorCount.Inc()
 		return
 	}
 
 	zlog.Debug("sending message", zap.String("data_hex", hex.EncodeToString(data)))
-
-	newCmd := &dmetering.Command{}
-	err = proto.Unmarshal(data, newCmd)
-	if err != nil {
-		panic(err)
-	}
-	zlog.Debug("decoded command", zap.Reflect("cmd", newCmd))
-
 	res := m.redisClient.Publish(context.Background(), m.pubSubTopic, data)
-
-	/*res := m.topic.Publish(context.Background(), &pubsub.Message{
-		Data: data,
-	})*/
 
 	if m.warnOnPubSubErrors {
 		if err := res.Err(); err != nil {

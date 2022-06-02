@@ -1,24 +1,23 @@
 package redis
 
 import (
-	"github.com/streamingfast/dmetering"
+	"github.com/pinax-network/dtypes/metering"
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"go.uber.org/zap"
 )
 
 type Accumulator struct {
-	events       map[string]*dmetering.Event
+	events       map[string]*metering.Event
 	eventsLock   sync.Mutex
 	emitter      topicEmitterFunc
 	emitterDelay time.Duration
 }
 
-func newAccumulator(emitter func(event *dmetering.Event), emitterDelay time.Duration) *Accumulator {
+func newAccumulator(emitter func(event *metering.Event), emitterDelay time.Duration) *Accumulator {
 	accumulator := &Accumulator{
-		events:       make(map[string]*dmetering.Event),
+		events:       make(map[string]*metering.Event),
 		emitter:      emitter,
 		emitterDelay: emitterDelay,
 	}
@@ -26,7 +25,7 @@ func newAccumulator(emitter func(event *dmetering.Event), emitterDelay time.Dura
 	return accumulator
 }
 
-func (a *Accumulator) emit(event *dmetering.Event) {
+func (a *Accumulator) emit(event *metering.Event) {
 	zlog.Debug("accumulator emitting", zap.String("user_id", event.UserId))
 	a.eventsLock.Lock()
 	defer a.eventsLock.Unlock()
@@ -41,12 +40,10 @@ func (a *Accumulator) emit(event *dmetering.Event) {
 
 	e.RequestsCount += event.RequestsCount
 	e.ResponsesCount += event.ResponsesCount
-	e.RateLimitHitCount += event.RateLimitHitCount
 	e.IngressBytes += event.IngressBytes
 	e.EgressBytes += event.EgressBytes
-	e.IdleTime += event.IdleTime
-	e.Timestamp = ptypes.TimestampNow()
-
+	curTime := time.Now()
+	e.Time = &curTime
 }
 
 func (a *Accumulator) delayedEmitter() {
@@ -61,7 +58,7 @@ func (a *Accumulator) emitAccumulatedEvents() {
 	zlog.Debug("emitting accumulated events")
 	a.eventsLock.Lock()
 	toSend := a.events
-	a.events = make(map[string]*dmetering.Event)
+	a.events = make(map[string]*metering.Event)
 	a.eventsLock.Unlock()
 
 	for _, event := range toSend {
@@ -69,23 +66,12 @@ func (a *Accumulator) emitAccumulatedEvents() {
 	}
 }
 
-func eventToKey(event *dmetering.Event) string {
-	//UserId               string
-	//Kind                 string
-	//Source               string
-	//Network              string
-	//Usage                string
-	//ApiKeyId             string
-	//IpAddress            string -- optional -- collected circa 2020-01-20
-	//Method               string -- optional -- collected circa 2020-02-18
-
-	// Accumulator `GROUP BY` key
-	return event.UserId +
+func eventToKey(event *metering.Event) string {
+	return event.Source +
 		event.Kind +
-		event.Source +
+		event.Method +
 		event.Network +
-		event.Usage +
+		event.UserId +
 		event.ApiKeyId +
-		event.IpAddress +
-		event.Method
+		event.IpAddress
 }

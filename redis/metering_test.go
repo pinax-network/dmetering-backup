@@ -3,15 +3,15 @@ package redis
 import (
 	"context"
 	"encoding/hex"
+	"github.com/golang-jwt/jwt"
+	"github.com/pinax-network/dtypes/authentication"
+	"github.com/pinax-network/dtypes/metering"
 	"github.com/streamingfast/dauth/authenticator"
 	"testing"
 	"time"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/form3tech-oss/jwt-go"
 	"github.com/golang/protobuf/proto"
-	auth_redis "github.com/streamingfast/dauth/authenticator/redis"
-	pbbilling "github.com/streamingfast/dauth/pb/dfuse/billing/v1"
 	"github.com/streamingfast/dmetering"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,24 +24,22 @@ func TestEmitWithContext(t *testing.T) {
 	topicProvider := func(pubsubProject string, t string) *pubsub.Topic {
 		return nil
 	}
-	topicEmitter := func(event *pbbilling.Event) {
+	topicEmitter := func(event *metering.Event) {
 		assert.Equal(t, "subject.1", event.UserId)
 		assert.Equal(t, "api.key.1", event.ApiKeyId)
-		assert.Equal(t, "usage.1", event.Usage)
 		close(done)
 	}
 
 	m := newMetering("network", "proj", "topic", false, 10*time.Millisecond, topicProvider, topicEmitter)
 
 	ctx := context.Background()
-	ctx = authenticator.WithCredentials(ctx, &auth_redis.Credentials{
+	ctx = authenticator.WithCredentials(ctx, &authentication.JwtCredentials{
 		StandardClaims: jwt.StandardClaims{
 			Subject: "subject.1",
 		},
-		APIKeyID: "api.key.1",
-		Usage:    "usage.1",
+		ApiKeyId: "api.key.1",
 	})
-	m.EmitWithContext(dmetering.Event{}, ctx)
+	m.EmitWithContext(metering.Event{}, ctx)
 	select {
 	case <-done:
 	case <-time.After(100 * time.Millisecond):
@@ -56,15 +54,14 @@ func TestEmitWithContextMissingCredentials(t *testing.T) {
 	topicProvider := func(pubsubProject string, t string) *pubsub.Topic {
 		return nil
 	}
-	topicEmitter := func(event *pbbilling.Event) {
+	topicEmitter := func(event *metering.Event) {
 		assert.Equal(t, "anonymous", event.UserId)
 		assert.Equal(t, "anonymous", event.ApiKeyId)
-		assert.Equal(t, "anonymous", event.Usage)
 		close(done)
 	}
 
 	m := newMetering("network.1", "P", "dev-billable-events-v2", false, 10*time.Millisecond, topicProvider, topicEmitter)
-	m.EmitWithContext(dmetering.Event{}, context.Background())
+	m.EmitWithContext(metering.Event{}, context.Background())
 
 	select {
 	case <-done:

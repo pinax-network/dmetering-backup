@@ -2,8 +2,8 @@ package dmetering
 
 import (
 	"context"
-
-	"github.com/streamingfast/dauth/authenticator"
+	"github.com/pinax-network/dtypes/authentication"
+	"github.com/pinax-network/dtypes/metering"
 	"go.uber.org/atomic"
 )
 
@@ -21,11 +21,11 @@ func newNullPlugin() *nullPlugin {
 	return &nullPlugin{}
 }
 
-func (p *nullPlugin) EmitWithContext(ev Event, ctx context.Context) {
+func (p *nullPlugin) EmitWithContext(ev metering.Event, ctx context.Context) {
 	p.messagesCount.Inc()
 }
 
-func (p *nullPlugin) EmitWithCredentials(ev Event, creds authenticator.Credentials) {
+func (p *nullPlugin) EmitWithCredentials(ev metering.Event, creds authentication.Credentials) {
 	p.messagesCount.Inc()
 }
 

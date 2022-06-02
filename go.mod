@@ -7,6 +7,7 @@ require (
 	github.com/go-redis/redis v6.15.9+incompatible // indirect
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang/protobuf v1.5.2
+	github.com/pinax-network/dtypes v0.0.0-20220602153950-d88cb0624df8
 	github.com/streamingfast/dauth v0.0.0-20210812020920-1c83ba29add1
 	github.com/streamingfast/logging v0.0.0-20220304214715-bc750a74b424
 	github.com/stretchr/testify v1.7.0
@@ -18,3 +19,5 @@ require (
 )
 
 replace github.com/streamingfast/dauth => /Users/work/GoLand/pinax-dauth
+
+replace github.com/pinax-network/dtypes => /Users/work/GoLand/pinax-dtypes

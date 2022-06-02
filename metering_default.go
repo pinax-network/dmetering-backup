@@ -2,8 +2,8 @@ package dmetering
 
 import (
 	"context"
-
-	"github.com/streamingfast/dauth/authenticator"
+	"github.com/pinax-network/dtypes/authentication"
+	"github.com/pinax-network/dtypes/metering"
 )
 
 var defaultMeter Metering = newNullPlugin()
@@ -12,11 +12,11 @@ func SetDefaultMeter(m Metering) {
 	defaultMeter = m
 }
 
-func EmitWithContext(ev Event, ctx context.Context) {
+func EmitWithContext(ev metering.Event, ctx context.Context) {
 	defaultMeter.EmitWithContext(ev, ctx)
 }
 
-func EmitWithCredentials(ev Event, creds authenticator.Credentials) {
+func EmitWithCredentials(ev metering.Event, creds authentication.Credentials) {
 	defaultMeter.EmitWithCredentials(ev, creds)
 }
 
