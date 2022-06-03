@@ -12,7 +12,6 @@ import (
 
 	"cloud.google.com/go/pubsub"
 	"github.com/golang/protobuf/proto"
-	"github.com/streamingfast/dmetering"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -111,10 +110,10 @@ func TestEmitter(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	m.EmitWithCredentials(dmetering.Event{
+	m.EmitWithCredentials(metering.Event{
 		Source: "source.1",
 		Kind:   "kind.1",
-	}, &auth_redis.Credentials{
+	}, &authentication.JwtCredentials{
 		StandardClaims: jwt.StandardClaims{
 			Subject: "user.id.1",
 		},

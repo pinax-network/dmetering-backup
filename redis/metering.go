@@ -9,7 +9,6 @@ import (
 	"github.com/pinax-network/dtypes/metering"
 	"github.com/streamingfast/dauth/authenticator"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -27,9 +26,9 @@ func init() {
 		}
 
 		vals := u.Query()
-		networkID := vals.Get("networkId")
-		if networkID == "" {
-			return nil, fmt.Errorf("missing networkId query param to metering config")
+		network := vals.Get("network")
+		if network == "" {
+			return nil, fmt.Errorf("missing network parameter")
 		}
 
 		var emitterDelay = 10 * time.Second
@@ -52,20 +51,9 @@ func init() {
 			return nil, fmt.Errorf("topic not specified (as path component)")
 		}
 
-		dbString := vals.Get("redisDB")
-		db := 0
-		if dbString != "" {
-			db, err = strconv.Atoi(dbString)
-
-			if err != nil {
-				err = fmt.Errorf("failed to parse redisDB parameter, not an integer: %s", dbString)
-				return nil, err
-			}
-		}
-
 		warnOnErrors := vals.Get("warnOnErrors") == "true"
 
-		return newMetering(networkID, hosts, db, topic, warnOnErrors, emitterDelay, nil), nil
+		return newMetering(network, hosts, topic, warnOnErrors, emitterDelay, nil), nil
 	})
 }
 
@@ -85,7 +73,7 @@ type meteringPlugin struct {
 // type topicProviderFunc func(pubsubProject string, topicName string) *pubsub.Topic
 type topicEmitterFunc func(e *metering.Event)
 
-func newMetering(network string, hosts []string, db int, pubSubTopic string, warnOnPubSubErrors bool, emitterDelay time.Duration /*topicProvider topicProviderFunc,*/, topicEmitter topicEmitterFunc) *meteringPlugin {
+func newMetering(network string, hosts []string, pubSubTopic string, warnOnPubSubErrors bool, emitterDelay time.Duration /*topicProvider topicProviderFunc,*/, topicEmitter topicEmitterFunc) *meteringPlugin {
 	m := &meteringPlugin{
 		network:            network,
 		warnOnPubSubErrors: warnOnPubSubErrors,
@@ -94,7 +82,6 @@ func newMetering(network string, hosts []string, db int, pubSubTopic string, war
 	m.redisClient = redis.NewFailoverClient(&redis.FailoverOptions{
 		MasterName:    "mymaster",
 		SentinelAddrs: hosts,
-		DB:            db,
 	})
 
 	m.pubSubTopic = pubSubTopic
@@ -128,6 +115,7 @@ func (m *meteringPlugin) EmitWithCredentials(ev metering.Event, creds authentica
 		ev.ApiKeyId = c.ApiKeyId
 		// userEvent.Usage = c.Usage
 		ev.IpAddress = c.IP
+		ev.Network = m.network
 	default:
 		zlog.Warn("got invalid credentials type", zap.Any("c", c))
 	}
