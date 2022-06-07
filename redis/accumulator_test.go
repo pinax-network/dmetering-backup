@@ -1,12 +1,11 @@
 package redis
 
 import (
-	"testing"
-	"time"
-
-	pbbilling "github.com/streamingfast/dauth/pb/dfuse/billing/v1"
+	"github.com/pinax-network/dtypes/metering"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"testing"
+	"time"
 )
 
 func TestAccumulatorDelay(t *testing.T) {
@@ -14,14 +13,14 @@ func TestAccumulatorDelay(t *testing.T) {
 	done := make(chan bool)
 	now := time.Now()
 
-	emitter := func(event *pbbilling.Event) {
+	emitter := func(event *metering.Event) {
 		zlog.Info("sending event", zap.Reflect("event", event))
 		assert.True(t, time.Since(now) >= delay)
 		close(done)
 	}
 
 	accumulator := newAccumulator(emitter, delay)
-	accumulator.emit(&pbbilling.Event{UserId: "user.id.3"})
+	accumulator.emit(&metering.Event{UserId: "user.id.3"})
 	select {
 	case <-done:
 	case <-time.After(100 * time.Millisecond):
@@ -55,26 +54,22 @@ func TestAccumulator(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			done := make(chan bool)
-			emitter := func(event *pbbilling.Event) {
+			emitter := func(event *metering.Event) {
 				assert.Equal(t, int64(1*c.numberOfEvent), event.RequestsCount)
 				assert.Equal(t, int64(10*c.numberOfEvent), event.ResponsesCount)
-				assert.Equal(t, int64(100*c.numberOfEvent), event.RateLimitHitCount)
 				assert.Equal(t, int64(1000*c.numberOfEvent), event.IngressBytes)
 				assert.Equal(t, int64(10000*c.numberOfEvent), event.EgressBytes)
-				assert.Equal(t, int64(100000*c.numberOfEvent), event.IdleTime)
 				close(done)
 			}
 			accumulator := newAccumulator(emitter, delay)
 
 			for i := 0; i < c.numberOfEvent; i++ {
-				accumulator.emit(&pbbilling.Event{
-					UserId:            "user.id.1",
-					RequestsCount:     1,
-					ResponsesCount:    10,
-					RateLimitHitCount: 100,
-					IngressBytes:      1000,
-					EgressBytes:       10000,
-					IdleTime:          100000,
+				accumulator.emit(&metering.Event{
+					UserId:         "user.id.1",
+					RequestsCount:  1,
+					ResponsesCount: 10,
+					IngressBytes:   1000,
+					EgressBytes:    10000,
 				})
 			}
 			accumulator.emitAccumulatedEvents()
@@ -91,8 +86,8 @@ func TestAccumulator(t *testing.T) {
 func TestAccumulatorDiffentEventKey(t *testing.T) {
 	delay := 1 * time.Minute
 	done := make(chan bool)
-	events := map[string]*pbbilling.Event{}
-	emitter := func(event *pbbilling.Event) {
+	events := map[string]*metering.Event{}
+	emitter := func(event *metering.Event) {
 		events[event.UserId] = event
 		if len(events) < 2 {
 			return
@@ -101,10 +96,10 @@ func TestAccumulatorDiffentEventKey(t *testing.T) {
 	}
 	accumulator := newAccumulator(emitter, delay)
 
-	accumulator.emit(&pbbilling.Event{
+	accumulator.emit(&metering.Event{
 		UserId: "user.id.1a",
 	})
-	accumulator.emit(&pbbilling.Event{
+	accumulator.emit(&metering.Event{
 		UserId: "user.id.2a",
 	})
 	accumulator.emitAccumulatedEvents()
@@ -117,5 +112,4 @@ func TestAccumulatorDiffentEventKey(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Time exceeded")
 	}
-
 }
