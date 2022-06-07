@@ -1,10 +1,10 @@
 # StreamingFast Metering Library
 
-[![reference](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://pkg.go.dev/github.com/streamingfast/dmetering)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+This is a fork of StreamingFast's dmetering package, which can be found [here](https://github.com/streamingfast/dmetering).
 
-This is the usage metering library used as part of **[StreamingFast](https://github.com/streamingfast/streamingfast)**.
-
+The fork adds a Redis Pub/Sub emitter for accumulated events. The protobuf for emitted events can be found in the 
+[dtypes](https://github.com/pinax-network/dtypes) package. An exemplary Redis subscriber with an Elastic sink can be 
+found in the [dmetering-elastic](https://github.com/pinax-network/dmetering-elastic) repository.
 
 ## Usage
 
@@ -13,20 +13,3 @@ See example usage in [dgraphql](https://github.com/streamingfast/dgraphql).
 The following plugins are provided by this package: (feel free to implement your own)
 
 * `null://`
-
-
-## Contributing
-
-**Issues and PR in this repo related strictly to the dmetering library.**
-
-Report any protocol-specific issues in their
-[respective repositories](https://github.com/streamingfast/streamingfast#protocols)
-
-**Please first refer to the general
-[StreamingFast contribution guide](https://github.com/streamingfast/streamingfast/blob/master/CONTRIBUTING.md)**,
-if you wish to contribute to this code base.
-
-
-## License
-
-[Apache 2.0](LICENSE)
