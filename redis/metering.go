@@ -44,7 +44,7 @@ func init() {
 			return nil, fmt.Errorf("redis nodes not specified (as hostname)")
 		}
 		hosts := strings.Split(u.Host, ",")
-		for i, _ := range hosts {
+		for i := range hosts {
 			hosts[i] = hosts[i] + ":" + u.Port()
 		}
 
