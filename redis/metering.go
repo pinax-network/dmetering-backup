@@ -41,19 +41,21 @@ func init() {
 
 		project := u.Host
 		if project == "" {
-			return nil, fmt.Errorf("project not specified (as hostname)")
+			return nil, fmt.Errorf("redis nodes not specified (as hostname)")
 		}
-
 		hosts := strings.Split(u.Host, ",")
+		for i, _ := range hosts {
+			hosts[i] = hosts[i] + ":" + u.Port()
+		}
 
 		topic := strings.TrimLeft(u.Path, "/")
 		if topic == "" {
 			return nil, fmt.Errorf("topic not specified (as path component)")
 		}
-
 		warnOnErrors := vals.Get("warnOnErrors") == "true"
+		masterName := vals.Get("masterName")
 
-		return newMetering(network, hosts, topic, warnOnErrors, emitterDelay, nil), nil
+		return newMetering(network, hosts, topic, masterName, warnOnErrors, emitterDelay), nil
 	})
 }
 
@@ -72,23 +74,18 @@ type meteringPlugin struct {
 
 type topicEmitterFunc func(e *metering.Event)
 
-func newMetering(network string, hosts []string, pubSubTopic string, warnOnPubSubErrors bool, emitterDelay time.Duration /*topicProvider topicProviderFunc,*/, topicEmitter topicEmitterFunc) *meteringPlugin {
+func newMetering(network string, hosts []string, pubSubTopic, masterName string, warnOnPubSubErrors bool, emitterDelay time.Duration) *meteringPlugin {
 
 	m := &meteringPlugin{
 		network:            network,
 		warnOnPubSubErrors: warnOnPubSubErrors,
 	}
 	m.redisClient = redis.NewFailoverClient(&redis.FailoverOptions{
-		MasterName:    "mymaster",
+		MasterName:    masterName,
 		SentinelAddrs: hosts,
 	})
 	m.pubSubTopic = pubSubTopic
-
-	if topicEmitter == nil {
-		m.accumulator = newAccumulator(m.defaultTopicEmitter, emitterDelay)
-	} else {
-		m.accumulator = newAccumulator(topicEmitter, emitterDelay)
-	}
+	m.accumulator = newAccumulator(m.defaultTopicEmitter, emitterDelay)
 
 	zlog.Info("metering is ready to emit")
 	return m
