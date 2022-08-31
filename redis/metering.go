@@ -44,7 +44,7 @@ func init() {
 			return nil, fmt.Errorf("redis nodes not specified (as hostname)")
 		}
 		hosts := strings.Split(u.Host, ",")
-		for i := range hosts {
+		for i, _ := range hosts {
 			hosts[i] = hosts[i] + ":" + u.Port()
 		}
 
@@ -55,7 +55,7 @@ func init() {
 		warnOnErrors := vals.Get("warnOnErrors") == "true"
 		masterName := vals.Get("masterName")
 
-		return newMetering(network, hosts, topic, masterName, warnOnErrors, emitterDelay), nil
+		return newMetering(network, hosts, topic, masterName, warnOnErrors, emitterDelay, nil), nil
 	})
 }
 
@@ -74,7 +74,7 @@ type meteringPlugin struct {
 
 type topicEmitterFunc func(e *metering.Event)
 
-func newMetering(network string, hosts []string, pubSubTopic, masterName string, warnOnPubSubErrors bool, emitterDelay time.Duration) *meteringPlugin {
+func newMetering(network string, hosts []string, pubSubTopic, masterName string, warnOnPubSubErrors bool, emitterDelay time.Duration, topicEmitter topicEmitterFunc) *meteringPlugin {
 
 	m := &meteringPlugin{
 		network:            network,
@@ -85,8 +85,12 @@ func newMetering(network string, hosts []string, pubSubTopic, masterName string,
 		SentinelAddrs: hosts,
 	})
 	m.pubSubTopic = pubSubTopic
-	m.accumulator = newAccumulator(m.defaultTopicEmitter, emitterDelay)
 
+	if topicEmitter == nil {
+		m.accumulator = newAccumulator(m.defaultTopicEmitter, emitterDelay)
+	} else {
+		m.accumulator = newAccumulator(topicEmitter, emitterDelay)
+	}
 	zlog.Info("metering is ready to emit")
 	return m
 }

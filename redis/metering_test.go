@@ -27,7 +27,7 @@ func TestEmitWithContext(t *testing.T) {
 		close(done)
 	}
 
-	m := newMetering("network", []string{"host1", "host2"}, "topic", false, 10*time.Millisecond, topicEmitter)
+	m := newMetering("network", []string{"host1", "host2"}, "topic", "mymaster", false, 10*time.Millisecond, topicEmitter)
 
 	ctx := context.Background()
 	ctx = authenticator.WithCredentials(ctx, &authentication.JwtCredentials{
@@ -60,7 +60,7 @@ func TestEmitter(t *testing.T) {
 		close(done)
 	}
 
-	m := newMetering("network.1", []string{"host1", "host2"}, "dev-billable-events-v2", false, 10*time.Millisecond, topicEmitter)
+	m := newMetering("network.1", []string{"host1", "host2"}, "dev-billable-events-v2", "mymaster", false, 10*time.Millisecond, topicEmitter)
 
 	// Fake "bean-counter" subscriber
 	go func() {
