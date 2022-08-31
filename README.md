@@ -1,32 +1,31 @@
 # StreamingFast Metering Library
 
-[![reference](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://pkg.go.dev/github.com/streamingfast/dmetering)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+This is a fork of StreamingFast's dmetering package, which can be found [here](https://github.com/streamingfast/dmetering).
 
-This is the usage metering library used as part of **[StreamingFast](https://github.com/streamingfast/streamingfast)**.
-
+The fork adds a Redis Pub/Sub emitter for accumulated events. The protobuf for emitted events can be found in the 
+[dtypes](https://github.com/pinax-network/dtypes) package. An exemplary Redis subscriber with an Elastic sink can be 
+found in the [dmetering-elastic](https://github.com/pinax-network/dmetering-elastic) repository.
 
 ## Usage
 
 See example usage in [dgraphql](https://github.com/streamingfast/dgraphql).
 
-The following plugins are provided by this package: (feel free to implement your own)
+The following plugins are provided by this package:
 
-* `null://`
+* `null://` (drops all metering events)
+* `zlog://` (writes all events to the configured log)
+* `redis://` (writes all events in to redis pub/sub)
 
+### Redis
 
-## Contributing
+Plugin url format: `redis://<hosts>:<port>/<topic>?network=<network_id>&emitterDelay=10s&warnOnErrors=true&masterName=<redis_master>` with:
 
-**Issues and PR in this repo related strictly to the dmetering library.**
+* `hosts`: list of comma separated redis hosts
+* `port`: port of the redis nodes (currently only possible to specify one port for all nodes)
+* `topic`: topic to listen on redis pub/sub
+* `network`: the network id this firehose instance is running on
+* `emitterDelay`: how often to emit accumulated events into redis
+* `warnOnErrors`: whether to log redis errors
+* `masterName`: redis master name
 
-Report any protocol-specific issues in their
-[respective repositories](https://github.com/streamingfast/streamingfast#protocols)
-
-**Please first refer to the general
-[StreamingFast contribution guide](https://github.com/streamingfast/streamingfast/blob/master/CONTRIBUTING.md)**,
-if you wish to contribute to this code base.
-
-
-## License
-
-[Apache 2.0](LICENSE)
+Example url: `redis://10.1.0.1,10.1.0.2,10.1.0.3:2367/eth?network=eth&emitterDelay=10s&warnOnErrors=true&masterName=mymaster`

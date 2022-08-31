@@ -1,6 +1,7 @@
 package dmetering
 
 import (
+	"github.com/pinax-network/dtypes/metering"
 	"net/http"
 	"strings"
 )
@@ -62,7 +63,7 @@ func (m *MeteringMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		m.metering.EmitWithContext(
-			Event{
+			metering.Event{
 				Source:         m.source,
 				Kind:           m.kind,
 				Method:         r.URL.Path,

@@ -3,10 +3,11 @@ package dmetering
 import (
 	"context"
 	"fmt"
+	"github.com/pinax-network/dtypes/authentication"
+	"github.com/pinax-network/dtypes/metering"
 	"net/url"
 	"path"
 
-	"github.com/streamingfast/dauth/authenticator"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -45,13 +46,13 @@ func newZlogPlugin(dsn string) (*zlogPlugin, error) {
 	return &zlogPlugin{total: atomic.Uint64{}, level: level, logger: logger}, nil
 }
 
-func (p *zlogPlugin) EmitWithContext(ev Event, ctx context.Context) {
+func (p *zlogPlugin) EmitWithContext(ev metering.Event, ctx context.Context) {
 	p.total.Inc()
 
 	p.logger.Check(p.level, "emitting event").Write(zap.Reflect("event", ev))
 }
 
-func (p *zlogPlugin) EmitWithCredentials(ev Event, creds authenticator.Credentials) {
+func (p *zlogPlugin) EmitWithCredentials(ev metering.Event, creds authentication.Credentials) {
 	p.total.Inc()
 
 	fields := append([]zap.Field{zap.Reflect("event", ev)}, creds.GetLogFields()...)
