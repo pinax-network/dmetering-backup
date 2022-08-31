@@ -45,26 +45,6 @@ func TestEmitWithContext(t *testing.T) {
 
 }
 
-func TestEmitWithContextMissingCredentials(t *testing.T) {
-	done := make(chan bool)
-
-	topicEmitter := func(event *metering.Event) {
-		assert.Equal(t, "anonymous", event.UserId)
-		assert.Equal(t, "anonymous", event.ApiKeyId)
-		close(done)
-	}
-
-	m := newMetering("network.1", []string{"host1", "host2"}, "dev-billable-events-v2", false, 10*time.Millisecond, topicEmitter)
-	m.EmitWithContext(metering.Event{}, context.Background())
-
-	select {
-	case <-done:
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Time exceeded")
-	}
-
-}
-
 func TestEmitter(t *testing.T) {
 	ctx := context.Background()
 	c, _ := NewFakePubsub(ctx)
@@ -76,8 +56,7 @@ func TestEmitter(t *testing.T) {
 
 	done := make(chan bool)
 	topicEmitter := func(event *metering.Event) {
-		assert.Equal(t, "anonymous", event.UserId)
-		assert.Equal(t, "anonymous", event.ApiKeyId)
+		assert.Equal(t, "user.id.1", event.UserId)
 		close(done)
 	}
 

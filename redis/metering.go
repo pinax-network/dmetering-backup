@@ -70,27 +70,19 @@ type meteringPlugin struct {
 	accumulator *Accumulator
 }
 
-// type topicProviderFunc func(pubsubProject string, topicName string) *pubsub.Topic
 type topicEmitterFunc func(e *metering.Event)
 
 func newMetering(network string, hosts []string, pubSubTopic string, warnOnPubSubErrors bool, emitterDelay time.Duration /*topicProvider topicProviderFunc,*/, topicEmitter topicEmitterFunc) *meteringPlugin {
+
 	m := &meteringPlugin{
 		network:            network,
 		warnOnPubSubErrors: warnOnPubSubErrors,
 	}
-
 	m.redisClient = redis.NewFailoverClient(&redis.FailoverOptions{
 		MasterName:    "mymaster",
 		SentinelAddrs: hosts,
 	})
-
 	m.pubSubTopic = pubSubTopic
-
-	/*	if topicProvider == nil {
-			m.topic = defaultTopicProvider(pubSubProject, pubSubTopic)
-		} else {
-			m.topic = topicProvider(pubSubProject, pubSubTopic)
-		}*/
 
 	if topicEmitter == nil {
 		m.accumulator = newAccumulator(m.defaultTopicEmitter, emitterDelay)
@@ -113,7 +105,6 @@ func (m *meteringPlugin) EmitWithCredentials(ev metering.Event, creds authentica
 	case *authentication.JwtCredentials:
 		ev.UserId = c.Subject
 		ev.ApiKeyId = c.ApiKeyId
-		// userEvent.Usage = c.Usage
 		ev.IpAddress = c.IP
 		ev.Network = m.network
 	default:
@@ -140,38 +131,8 @@ func (m *meteringPlugin) GetStatusCounters() (total, errors uint64) {
 func (m *meteringPlugin) WaitToFlush() {
 	zlog.Info("gracefully shutting down, now flushing pending dbilling events")
 	m.accumulator.emitAccumulatedEvents()
-	// m.topic.Stop()
 	zlog.Info("all billing events have been flushed before shutdown")
 }
-
-/*func defaultTopicProvider(pubsubProject string, topicName string) *pubsub.Topic {
-	ctx := context.Background()
-
-	client := redis.NewClusterClient(&redis.ClusterOptions{
-
-	})
-
-	topics, err := client.PubSubChannels(ctx, topicName).Result()
-
-	if err != nil || len(topics) == 0 {
-		zlog.Panic("unable to setup dbilling PubSub connection", zap.String("project", pubsubProject), zap.String("topic", topicName), zap.Error(err))
-	}
-
-	client.Publish(ctx)
-
-	topic := client.Topic(topicName)
-	topic.PublishSettings = pubsub.PublishSettings{
-		ByteThreshold:  20000,
-		CountThreshold: 100,
-		DelayThreshold: 1 * time.Second,
-	}
-
-	exists, err := topic.Exists(ctx)
-	if err != nil || !exists {
-		zlog.Panic("unable to setup dbilling PubSub connection", zap.String("project", pubsubProject), zap.String("topic", topicName), zap.Error(err))
-	}
-	return topic
-}*/
 
 func (m *meteringPlugin) defaultTopicEmitter(e *metering.Event) {
 	if e.UserId == "" || e.Source == "" || e.Kind == "" {
